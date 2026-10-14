@@ -1,0 +1,133 @@
+# Bento: дизеринговая модель крутится в центре экрана, а когда
+# спрашивают пароль (LUKS) — под ней поле с точками, как на локе.
+# @…@ подставляет nix/theme.nix
+
+Window.SetBackgroundTopColor(@BG_R@, @BG_G@, @BG_B@);
+Window.SetBackgroundBottomColor(@BG_R@, @BG_G@, @BG_B@);
+
+frames = @FRAMES@;
+fps = @FPS@;
+dot_colors = @DOT_COLORS@;
+
+for (i = 0; i < frames; i++)
+  frame[i] = Image("frame-" + i + ".png");
+for (i = 0; i < dot_colors; i++)
+  dot_image[i] = Image("dot-" + i + ".png");
+field_image = Image("field.png");
+
+cx = Window.GetX() + Window.GetWidth() / 2;
+cy = Window.GetY() + Window.GetHeight() / 2;
+
+model = Sprite(frame[0]);
+model.SetPosition(cx - frame[0].GetWidth() / 2, cy - frame[0].GetHeight() / 2, 1);
+
+# Plymouth зовёт refresh 50 раз в секунду, кадры идут со своей частотой
+tick = 0;
+fun refresh_callback ()
+{
+  tick++;
+  model.SetImage(frame[Math.Int(tick * fps / 50) % frames]);
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# ===== Пароль =====
+
+field = Sprite(field_image);
+field_x = cx - field_image.GetWidth() / 2;
+# Модель в кадре вписана по длине, а по высоте кадр почти пустой: поле
+# ставим под её ноги, а не под край кадра
+field_y = cy + frame[0].GetHeight() * 0.3;
+field.SetPosition(field_x, field_y, 2);
+field.SetOpacity(0);
+
+prompt = Sprite();
+prompt.SetOpacity(0);
+
+dots_max = 20;
+dot_w = dot_image[0].GetWidth();
+dot_gap = 7;
+for (i = 0; i < dots_max; i++)
+{
+  dot[i] = Sprite(dot_image[0]);
+  dot[i].SetOpacity(0);
+}
+
+fun text (s, r, g, b)
+{
+  return Image.Text(s, r, g, b, 1, "Sans 11");
+}
+
+fun hide_password ()
+{
+  field.SetOpacity(0);
+  prompt.SetOpacity(0);
+  for (i = 0; i < dots_max; i++)
+    dot[i].SetOpacity(0);
+}
+
+fun display_password_callback (prompt_text, bullets)
+{
+  field.SetOpacity(1);
+
+  # Пока ничего не набрано — подсказка внутри поля, как «Пароль» на локе
+  if (bullets == 0)
+  {
+    if (prompt_text == "")
+      prompt_text = "Пароль";
+    img = text(prompt_text, @MUTED_R@, @MUTED_G@, @MUTED_B@);
+    prompt.SetImage(img);
+    prompt.SetPosition(cx - img.GetWidth() / 2,
+                       field_y + field_image.GetHeight() / 2 - img.GetHeight() / 2, 3);
+    prompt.SetOpacity(1);
+  }
+  else
+    prompt.SetOpacity(0);
+
+  n = Math.Min(bullets, dots_max);
+  row = n * dot_w + (n - 1) * dot_gap;
+  for (i = 0; i < dots_max; i++)
+  {
+    if (i < n)
+    {
+      # Градиент по всей длине ряда, как точки на локе
+      if (n > 1)
+        c = Math.Int(i * (dot_colors - 1) / (n - 1) + 0.5);
+      else
+        c = 0;
+      dot[i].SetImage(dot_image[c]);
+      dot[i].SetPosition(cx - row / 2 + i * (dot_w + dot_gap),
+                         field_y + field_image.GetHeight() / 2 - dot_w / 2, 3);
+      dot[i].SetOpacity(1);
+    }
+    else
+      dot[i].SetOpacity(0);
+  }
+}
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+
+fun display_normal_callback ()
+{
+  hide_password();
+}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+# ===== Сообщения =====
+
+message = Sprite();
+message.SetOpacity(0);
+
+fun message_callback (s)
+{
+  img = text(s, @MUTED_R@, @MUTED_G@, @MUTED_B@);
+  message.SetImage(img);
+  message.SetPosition(cx - img.GetWidth() / 2, Window.GetY() + Window.GetHeight() - img.GetHeight() - 48, 4);
+  message.SetOpacity(1);
+}
+Plymouth.SetMessageFunction(message_callback);
+
+fun quit_callback ()
+{
+  hide_password();
+  message.SetOpacity(0);
+}
+Plymouth.SetQuitFunction(quit_callback);

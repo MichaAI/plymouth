@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Bento
+Description=Дизеринговая модель крутится в центре, пароль — точками, как на локе
+ModuleName=script
+
+[script]
+ImageDir=@DIR@
+ScriptFile=@DIR@/bento.script
